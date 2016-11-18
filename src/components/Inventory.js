@@ -9,7 +9,9 @@ class Inventory extends React.Component {
     this.handleChange = this.handleChange.bind(this);
     this.renderInventory = this.renderInventory.bind(this);
     this.renderLogin = this.renderLogin.bind(this);
+
     this.authenticate = this.authenticate.bind(this);
+    this.logout = this.logout.bind(this);
     this.authHandler = this.authHandler.bind(this);
 
     this.state = {
@@ -17,6 +19,14 @@ class Inventory extends React.Component {
       owner: null
     }
 
+  }
+
+  componentDidMount() {
+    base.onAuth((user) => {
+      if(user) {
+        this.authHandler(null, { user });
+      }
+    });
   }
 
   handleChange(e, key) {
@@ -36,6 +46,11 @@ class Inventory extends React.Component {
     base.authWithOAuthPopup(provider, this.authHandler);
   }
 
+  logout() {
+    base.unauth();
+    this.setState({ uid: null });
+  }
+
   authHandler(err, authData) {
     console.log(authData);
 
@@ -45,6 +60,23 @@ class Inventory extends React.Component {
     }
 
     // grab the store info here
+    const storeRef = base.database().ref(this.props.storeId);
+
+    // query the Firebase once for the store data
+    storeRef.once("value", (snapshot) => {
+      const data = snapshot.val() || {};
+      // claim as our own if there is no owner already
+      if(!data.owner) {
+        storeRef.set({
+          owner: authData.user.uid
+        });
+      }
+
+      this.setState({
+        uid: authData.user.uid,
+        owner: data.owner || authData.user.uid
+      });
+    });
 
   }
 
@@ -78,7 +110,7 @@ class Inventory extends React.Component {
   }
 
   render () {
-    const logout = <button>Log Out!</button>;
+    const logout = <button onClick={this.logout}>Log Out!</button>;
 
     // check if they are not logged in at all
     if(!this.state.uid) {
